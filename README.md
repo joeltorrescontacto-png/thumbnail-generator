@@ -1,1 +1,1 @@
-# thumbnail-generator
+# index.html
