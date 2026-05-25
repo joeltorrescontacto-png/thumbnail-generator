@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador de Miniaturas YouTube</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: #e0e0e0; min-height: 100vh; padding: 24px; }
+  h1 { font-size: 18px; font-weight: 600; color: #fff; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #555; margin-bottom: 24px; }
+  .layout { display: grid; grid-template-columns: 340px 1fr; gap: 20px; max-width: 1140px; margin: 0 auto; align-items: start; }
+  .left-col { display: flex; flex-direction: column; gap: 16px; }
+  .right-col { position: sticky; top: 24px; display: flex; flex-direction: column; gap: 16px; }
+  .panel { background: #1a1a1a; border: 0.5px solid #2a2a2a; border-radius: 12px; padding: 20px; }
+  .panel-title { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #555; margin-bottom: 16px; }
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  label { display: block; font-size: 12px; color: #777; margin-bottom: 6px; }
+  input[type="text"] { width: 100%; padding: 9px 12px; background: #111; border: 0.5px solid #2e2e2e; border-radius: 8px; color: #e0e0e0; font-size: 13px; outline: none; transition: border-color .15s; }
+  input[type="text"]:focus { border-color: #555; }
+  input[type="range"] { width: 100%; accent-color: #fff; cursor: pointer; }
+  .range-row { display: flex; align-items: center; gap: 10px; }
+  .range-val { font-size: 12px; color: #666; min-width: 38px; text-align: right; font-family: monospace; }
+  .btn-main { width: 100%; padding: 11px; background: #fff; color: #000; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity .15s; }
+  .btn-main:hover { opacity: 0.88; }
+  .btn-sec { width: 100%; padding: 10px; background: transparent; color: #888; border: 0.5px solid #2e2e2e; border-radius: 8px; font-size: 13px; cursor: pointer; margin-top: 8px; transition: all .15s; display: none; }
+  .btn-sec.visible { display: block; }
+  .btn-sec:hover { background: #222; color: #fff; }
+  .btn-outline { width: 100%; padding: 10px; background: transparent; color: #888; border: 0.5px solid #2e2e2e; border-radius: 8px; font-size: 13px; cursor: pointer; transition: all .15s; }
+  .btn-outline:hover { background: #222; color: #fff; }
+  .preview-wrap { background: #111; border: 0.5px solid #222; border-radius: 10px; aspect-ratio: 16/9; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+  canvas { width: 100%; height: 100%; object-fit: contain; display: none; }
+  .empty-state { text-align: center; color: #333; pointer-events: none; }
+  .empty-state i { font-size: 28px; display: block; margin-bottom: 8px; }
+  .empty-state p { font-size: 12px; }
+  .upload-zone { border: 1px dashed #2a2a2a; border-radius: 8px; padding: 14px; text-align: center; cursor: pointer; transition: border-color .15s; }
+  .upload-zone:hover { border-color: #444; }
+  .upload-zone p { font-size: 12px; color: #555; margin-top: 5px; }
+  .upload-zone i { font-size: 20px; color: #444; }
+  .upload-zone.loaded { border-color: #2a4a2a; }
+  .upload-zone.loaded p, .upload-zone.loaded i { color: #4a8a4a; }
+  .font-loader { border: 0.5px solid #2e2e2e; border-radius: 8px; overflow: hidden; }
+  .font-label-bar { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #111; }
+  .font-label-bar i { font-size: 16px; color: #555; }
+  .font-name { font-size: 12px; color: #777; flex: 1; }
+  .font-status-dot { width: 8px; height: 8px; border-radius: 50%; background: #333; transition: background .3s; }
+  .font-status-dot.loaded { background: #4a8a4a; }
+  .font-upload-trigger { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 12px; background: #161616; border-top: 0.5px solid #2a2a2a; cursor: pointer; font-size: 12px; color: #555; transition: all .15s; }
+  .font-upload-trigger:hover { background: #1e1e1e; color: #aaa; }
+  .font-upload-trigger i { font-size: 15px; }
+  .font-upload-trigger.done { color: #4a8a4a; cursor: default; pointer-events: none; }
+  .seg-row { display: grid; gap: 4px; }
+  .seg-btn { padding: 8px 6px; background: #111; border: 0.5px solid #2e2e2e; border-radius: 6px; color: #555; font-size: 11px; cursor: pointer; text-align: center; transition: all .15s; }
+  .seg-btn:hover { border-color: #444; color: #aaa; }
+  .seg-btn.active { border-color: #fff; color: #fff; background: #222; }
+  .seg-btn.spacer { background: transparent; border-color: transparent; cursor: default; display: flex; align-items: center; justify-content: center; }
+  .seg-btn.spacer i { font-size: 14px; color: #2a2a2a; }
+  .three-col { grid-template-columns: 1fr 1fr 1fr; }
+  .two-col { grid-template-columns: 1fr 1fr; }
+  .align-row { display: flex; gap: 6px; }
+  .align-btn { flex: 1; padding: 7px 4px; background: #111; border: 0.5px solid #2e2e2e; border-radius: 6px; color: #555; font-size: 18px; cursor: pointer; text-align: center; transition: all .15s; line-height: 1; }
+  .align-btn:hover { border-color: #444; color: #aaa; }
+  .align-btn.active { border-color: #fff; color: #fff; background: #222; }
+  .text-line-block { background: #111; border: 0.5px solid #222; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+  .text-line-block:last-child { margin-bottom: 0; }
+  .text-line-label { font-size: 11px; color: #555; margin-bottom: 8px; font-weight: 500; }
+  .z-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .z-btn { padding: 10px 8px; background: #111; border: 0.5px solid #2e2e2e; border-radius: 8px; color: #555; font-size: 11px; cursor: pointer; text-align: center; transition: all .15s; line-height: 1.5; }
+  .z-btn:hover { border-color: #444; color: #aaa; }
+  .z-btn.active { border-color: #fff; color: #fff; background: #222; }
+  .z-btn i { font-size: 18px; display: block; margin-bottom: 4px; }
+  .tag-pill { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 999px; background: #1e1e1e; color: #555; border: 0.5px solid #2a2a2a; margin: 2px 2px 4px 0; cursor: pointer; transition: all .15s; }
+  .tag-pill:hover { color: #aaa; border-color: #444; }
+  .stats-row { display: flex; gap: 8px; margin-top: 12px; }
+  .stat { background: #111; border-radius: 8px; padding: 8px 12px; flex: 1; }
+  .stat-label { font-size: 10px; color: #555; }
+  .stat-val { font-size: 14px; font-weight: 600; color: #ccc; margin-top: 1px; }
+  .script-out { display: none; margin-top: 10px; background: #0a0a0a; border: 0.5px solid #222; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 11px; color: #777; white-space: pre; overflow-x: auto; line-height: 1.8; max-height: 220px; overflow-y: auto; }
+  hr { border: none; border-top: 0.5px solid #222; margin: 14px 0; }
+
+  /* Color picker con hex */
+  .color-picker-row { display: flex; gap: 8px; align-items: center; }
+  .color-swatch { width: 36px; height: 36px; min-width: 36px; border-radius: 8px; border: 0.5px solid #2e2e2e; cursor: pointer; padding: 2px; background: #111; }
+  .hex-input { flex: 1; padding: 9px 12px; background: #111; border: 0.5px solid #2e2e2e; border-radius: 8px; color: #e0e0e0; font-size: 13px; font-family: monospace; outline: none; transition: border-color .15s; }
+  .hex-input:focus { border-color: #555; }
+
+  /* Overlay toggle */
+  .overlay-toggle { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer; }
+  .toggle-track { position: relative; width: 32px; height: 18px; background: #333; border-radius: 9px; transition: background .2s; flex-shrink: 0; }
+  .toggle-track.on { background: #4a8a4a; }
+  .toggle-knob { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: #fff; border-radius: 50%; transition: transform .2s; }
+  .toggle-track.on .toggle-knob { transform: translateX(14px); }
+  .overlay-label { font-size: 12px; color: #777; }
+
+  .dir-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; max-width: 160px; }
+  .dir-btn { padding: 7px; background: #111; border: 0.5px solid #2e2e2e; border-radius: 6px; color: #555; font-size: 16px; cursor: pointer; text-align: center; transition: all .15s; line-height: 1; }
+  .dir-btn:hover { border-color: #444; color: #aaa; }
+  .dir-btn.active { border-color: #fff; color: #fff; background: #222; }
+  .dir-btn.spacer { background: transparent; border-color: transparent; cursor: default; }
+</style>
+</head>
+<body>
+
+<div style="max-width:1140px;margin:0 auto 20px">
+  <h1>Generador de miniaturas YouTube</h1>
+  <p class="subtitle">Controles a la izquierda — preview fija a la derecha</p>
+</div>
+
+<div class="layout">
+  <div class="left-col">
+
+    <!-- FONDO -->
+    <div class="panel">
+      <p class="panel-title">Imagen de fondo</p>
+      <div class="field">
+        <div class="upload-zone" id="bgZone" onclick="document.getElementById('bgUpload').click()">
+          <i class="ti ti-photo" aria-hidden="true"></i>
+          <p id="bgLabel">Haz clic para subir JPG o PNG</p>
+          <input type="file" id="bgUpload" accept="image/*" style="display:none" onchange="loadBg(this)">
+        </div>
+      </div>
+      <div class="field">
+        <label>Oscuridad del fondo</label>
+        <div class="range-row">
+          <input type="range" id="darkness" min="0" max="220" value="100" step="1" oninput="document.getElementById('dkVal').textContent=Math.round(parseInt(this.value)/2.2)+'%';autoPreview()">
+          <span class="range-val" id="dkVal">45%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CAPAS DE COLOR -->
+    <div class="panel">
+      <p class="panel-title">Capas de color</p>
+
+      <!-- VIÑETA -->
+      <div class="field">
+        <div class="overlay-toggle" onclick="toggleVignette()">
+          <div class="toggle-track" id="vigTrack"><div class="toggle-knob"></div></div>
+          <span class="overlay-label">Viñeta circular</span>
+        </div>
+        <div id="vigControls">
+          <div class="field">
+            <label>Color de viñeta</label>
+            <div class="color-picker-row">
+              <input type="color" class="color-swatch" id="vigColor" value="#001147" oninput="syncHex('vigColor','vigHex');autoPreview()">
+              <input type="text" class="hex-input" id="vigHex" value="#001147" oninput="syncColor('vigHex','vigColor');autoPreview()" maxlength="7" placeholder="#001147">
+            </div>
+          </div>
+          <div class="field">
+            <label>Intensidad</label>
+            <div class="range-row">
+              <input type="range" id="vigIntensity" min="0" max="100" value="60" step="1" oninput="document.getElementById('viVal').textContent=this.value+'%';autoPreview()">
+              <span class="range-val" id="viVal">60%</span>
+            </div>
+          </div>
+          <div class="field">
+            <label>Tamaño (radio del centro claro)</label>
+            <div class="range-row">
+              <input type="range" id="vigSize" min="10" max="100" value="60" step="1" oninput="document.getElementById('vsVal').textContent=this.value+'%';autoPreview()">
+              <span class="range-val" id="vsVal">60%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <hr>
+
+      <!-- DEGRADADO DIRECCIONAL -->
+      <div class="field">
+        <div class="overlay-toggle" onclick="toggleGrad()">
+          <div class="toggle-track" id="gradTrack"><div class="toggle-knob"></div></div>
+          <span class="overlay-label">Degradado direccional</span>
+        </div>
+        <div id="gradControls">
+          <div class="field">
+            <label>Color del degradado</label>
+            <div class="color-picker-row">
+              <input type="color" class="color-swatch" id="gradColor" value="#001147" oninput="syncHex('gradColor','gradHex');autoPreview()">
+              <input type="text" class="hex-input" id="gradHex" value="#001147" oninput="syncColor('gradHex','gradColor');autoPreview()" maxlength="7" placeholder="#001147">
+            </div>
+          </div>
+          <div class="field">
+            <label>Dirección</label>
+            <div class="dir-grid">
+              <div class="dir-btn" id="dir-tl" onclick="setDir('tl')" title="Arriba izq.">&#8598;</div>
+              <div class="dir-btn" id="dir-t"  onclick="setDir('t')"  title="Arriba">&#8593;</div>
+              <div class="dir-btn" id="dir-tr" onclick="setDir('tr')" title="Arriba der.">&#8599;</div>
+              <div class="dir-btn" id="dir-l"  onclick="setDir('l')"  title="Izquierda">&#8592;</div>
+              <div class="dir-btn spacer"></div>
+              <div class="dir-btn" id="dir-r"  onclick="setDir('r')"  title="Derecha">&#8594;</div>
+              <div class="dir-btn" id="dir-bl" onclick="setDir('bl')" title="Abajo izq.">&#8601;</div>
+              <div class="dir-btn active" id="dir-b"  onclick="setDir('b')"  title="Abajo">&#8595;</div>
+              <div class="dir-btn" id="dir-br" onclick="setDir('br')" title="Abajo der.">&#8600;</div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Opacidad máxima</label>
+            <div class="range-row">
+              <input type="range" id="gradOpacity" min="0" max="100" value="70" step="1" oninput="document.getElementById('goVal').textContent=this.value+'%';autoPreview()">
+              <span class="range-val" id="goVal">70%</span>
+            </div>
+          </div>
+          <div class="field">
+            <label>Extensión del degradado</label>
+            <div class="range-row">
+              <input type="range" id="gradExtent" min="10" max="100" value="60" step="1" oninput="document.getElementById('geVal').textContent=this.value+'%';autoPreview()">
+              <span class="range-val" id="geVal">60%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRESENTADOR -->
+    <div class="panel">
+      <p class="panel-title">Presentador</p>
+      <div class="field">
+        <div class="upload-zone" id="presZone" onclick="document.getElementById('presUpload').click()">
+          <i class="ti ti-user-circle" aria-hidden="true"></i>
+          <p id="presLabel">Haz clic para subir PNG sin fondo</p>
+          <input type="file" id="presUpload" accept="image/png,image/jpeg" style="display:none" onchange="loadPres(this)">
+        </div>
+      </div>
+      <div class="field">
+        <label>Posición horizontal</label>
+        <div class="seg-row two-col">
+          <div class="seg-btn active" id="pp-right" onclick="setPresPos('right')">Derecha</div>
+          <div class="seg-btn" id="pp-left" onclick="setPresPos('left')">Izquierda</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Tamaño</label>
+        <div class="range-row">
+          <input type="range" id="presSize" min="30" max="100" value="90" step="1" oninput="document.getElementById('psVal').textContent=this.value+'%';autoPreview()">
+          <span class="range-val" id="psVal">90%</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Capa — ¿delante o detrás del texto?</label>
+        <div class="z-toggle">
+          <div class="z-btn" id="z-front" onclick="setZOrder('front')">
+            <i class="ti ti-user" aria-hidden="true"></i>Delante del texto
+          </div>
+          <div class="z-btn active" id="z-back" onclick="setZOrder('back')">
+            <i class="ti ti-text-size" aria-hidden="true"></i>Detrás del texto
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TEXTO -->
+    <div class="panel">
+      <p class="panel-title">Texto</p>
+      <div class="field">
+        <label>Fuente tipográfica</label>
+        <div class="font-loader">
+          <div class="font-label-bar">
+            <i class="ti ti-typography" aria-hidden="true"></i>
+            <span class="font-name">Avenir Next World Black.ttf</span>
+            <div class="font-status-dot" id="fontDot"></div>
+          </div>
+          <div class="font-upload-trigger" id="fontTrigger" onclick="document.getElementById('fontUpload').click()">
+            <i class="ti ti-upload" aria-hidden="true"></i>
+            <span id="fontTriggerLabel">Vincular archivo .ttf</span>
+            <input type="file" id="fontUpload" accept=".ttf,.otf,.woff" style="display:none" onchange="loadFont(this)">
+          </div>
+        </div>
+      </div>
+
+      <div class="text-line-block">
+        <p class="text-line-label">Línea 1 — título pequeño</p>
+        <div class="field">
+          <input type="text" id="linea1" value="COMBO PARA" oninput="autoPreview()">
+          <div style="margin-top:6px">
+            <span class="tag-pill" onclick="setT('linea1','EL SECRETO')">EL SECRETO</span>
+            <span class="tag-pill" onclick="setT('linea1','DESCUBRE')">DESCUBRE</span>
+            <span class="tag-pill" onclick="setT('linea1','POR QUÉ')">POR QUÉ</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Alineación</label>
+          <div class="align-row">
+            <div class="align-btn active" id="a1-left"   onclick="setAlign(1,'left')"   title="Izquierda">&#8676;</div>
+            <div class="align-btn"        id="a1-center" onclick="setAlign(1,'center')" title="Centro">&#8596;</div>
+            <div class="align-btn"        id="a1-right"  onclick="setAlign(1,'right')"  title="Derecha">&#8677;</div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Color</label>
+          <div class="color-picker-row">
+            <div style="width:36px;height:36px;min-width:36px;border-radius:8px;border:0.5px solid #2e2e2e;background:#ffffff"></div>
+            <div style="flex:1;padding:9px 12px;background:#111;border:0.5px solid #1e1e1e;border-radius:8px;font-size:13px;font-family:monospace;color:#555">#ffffff — fijo</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="text-line-block">
+        <p class="text-line-label">Línea 2 — título grande</p>
+        <div class="field">
+          <input type="text" id="linea2" value="BAJAR 10KG" oninput="autoPreview()">
+          <div style="margin-top:6px">
+            <span class="tag-pill" onclick="setT('linea2','NUNCA FALLA')">NUNCA FALLA</span>
+            <span class="tag-pill" onclick="setT('linea2','EN 30 DÍAS')">EN 30 DÍAS</span>
+            <span class="tag-pill" onclick="setT('linea2','QUE NADIE TE DICE')">QUE NADIE TE DICE</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Alineación</label>
+          <div class="align-row">
+            <div class="align-btn active" id="a2-left"   onclick="setAlign(2,'left')"   title="Izquierda">&#8676;</div>
+            <div class="align-btn"        id="a2-center" onclick="setAlign(2,'center')" title="Centro">&#8596;</div>
+            <div class="align-btn"        id="a2-right"  onclick="setAlign(2,'right')"  title="Derecha">&#8677;</div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Color</label>
+          <div class="color-picker-row">
+            <input type="color" class="color-swatch" id="color2" value="#a9ee35" oninput="syncHex('color2','hex2');autoPreview()">
+            <input type="text" class="hex-input" id="hex2" value="#a9ee35" oninput="syncColor('hex2','color2');autoPreview()" maxlength="7" placeholder="#a9ee35">
+          </div>
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:14px">
+        <label>Tamaño fuente grande</label>
+        <div class="range-row">
+          <input type="range" id="fontSize" min="60" max="200" value="130" step="1" oninput="document.getElementById('fsVal').textContent=this.value+'px';autoPreview()">
+          <span class="range-val" id="fsVal">130px</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Interlineado entre líneas</label>
+        <div class="range-row">
+          <input type="range" id="lineGap" min="-40" max="60" value="10" step="1" oninput="document.getElementById('lgVal').textContent=this.value+'px';autoPreview()">
+          <span class="range-val" id="lgVal">10px</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- POSICIÓN TITULAR -->
+    <div class="panel">
+      <p class="panel-title">Posición del titular</p>
+      <div class="field">
+        <label>Esquina de referencia</label>
+        <div class="seg-row three-col">
+          <div class="seg-btn active" id="c-tl" onclick="setCorner('tl')">Arriba izq.</div>
+          <div class="seg-btn" id="c-tc" onclick="setCorner('tc')">Arriba centro</div>
+          <div class="seg-btn" id="c-tr" onclick="setCorner('tr')">Arriba der.</div>
+          <div class="seg-btn" id="c-ml" onclick="setCorner('ml')">Medio izq.</div>
+          <div class="seg-btn spacer"><i class="ti ti-layout-distribute-vertical" aria-hidden="true"></i></div>
+          <div class="seg-btn" id="c-mr" onclick="setCorner('mr')">Medio der.</div>
+          <div class="seg-btn" id="c-bl" onclick="setCorner('bl')">Abajo izq.</div>
+          <div class="seg-btn" id="c-bc" onclick="setCorner('bc')">Abajo centro</div>
+          <div class="seg-btn" id="c-br" onclick="setCorner('br')">Abajo der.</div>
+        </div>
+      </div>
+      <hr>
+      <div class="field">
+        <label>Ajuste fino horizontal (X)</label>
+        <div class="range-row">
+          <input type="range" id="offsetX" min="-300" max="300" value="0" step="1" oninput="document.getElementById('oxVal').textContent=this.value+'px';autoPreview()">
+          <span class="range-val" id="oxVal">0px</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Ajuste fino vertical (Y)</label>
+        <div class="range-row">
+          <input type="range" id="offsetY" min="-300" max="300" value="0" step="1" oninput="document.getElementById('oyVal').textContent=this.value+'px';autoPreview()">
+          <span class="range-val" id="oyVal">0px</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="right-col">
+    <div class="panel">
+      <p class="panel-title">Vista previa</p>
+      <div class="preview-wrap">
+        <div class="empty-state" id="emptyState">
+          <i class="ti ti-photo-off" aria-hidden="true"></i>
+          <p>Sube un fondo para ver la preview</p>
+        </div>
+        <canvas id="canvas" width="1280" height="720"></canvas>
+      </div>
+      <div class="stats-row">
+        <div class="stat"><div class="stat-label">Resolución</div><div class="stat-val">1280×720</div></div>
+        <div class="stat"><div class="stat-label">Formato</div><div class="stat-val">JPG 95%</div></div>
+        <div class="stat"><div class="stat-label">Aspecto</div><div class="stat-val">16:9</div></div>
+      </div>
+      <div style="margin-top:14px">
+        <button class="btn-main" onclick="generateFull()">Generar miniatura</button>
+        <div id="dlButtons" style="display:none;flex-direction:column;gap:8px;margin-top:8px;">
+          <button id="btnJpg" onclick="downloadJpg()" style="width:100%;padding:10px;background:transparent;color:#888;border:0.5px solid #2e2e2e;border-radius:8px;font-size:13px;cursor:pointer;transition:all .15s">Descargar JPG</button>
+          <button id="btnPng" onclick="downloadPng()" style="width:100%;padding:10px;background:transparent;color:#a0c4ff;border:0.5px solid #1a3a5c;border-radius:8px;font-size:13px;cursor:pointer;transition:all .15s">Descargar PNG alta resolución</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <p class="panel-title">Exportar código Python</p>
+      <p style="font-size:12px;color:#555;margin-bottom:12px;line-height:1.7">Genera el <span style="font-family:monospace;background:#111;padding:1px 5px;border-radius:4px;color:#777">generate.py</span> con todos los ajustes actuales.</p>
+      <button class="btn-outline" onclick="generateScript()">Copiar código Python actualizado</button>
+      <div class="script-out" id="scriptOut"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let bgImg = null, presImg = null;
+  let presPos = 'right', corner = 'tl', zOrder = 'back';
+  let align1 = 'left', align2 = 'left';
+  let customFontName = null;
+  let vigOn = false, gradOn = false, gradDir = 'b';
+
+  function syncHex(colorId, hexId) {
+    document.getElementById(hexId).value = document.getElementById(colorId).value;
+  }
+  function syncColor(hexId, colorId) {
+    const v = document.getElementById(hexId).value;
+    if (/^#[0-9a-fA-F]{6}$/.test(v)) document.getElementById(colorId).value = v;
+  }
+
+  function toggleVignette() {
+    vigOn = !vigOn;
+    document.getElementById('vigTrack').classList.toggle('on', vigOn);
+    autoPreview();
+  }
+  function toggleGrad() {
+    gradOn = !gradOn;
+    document.getElementById('gradTrack').classList.toggle('on', gradOn);
+    autoPreview();
+  }
+  function setDir(d) {
+    gradDir = d;
+    ['tl','t','tr','l','r','bl','b','br'].forEach(x => {
+      const el = document.getElementById('dir-'+x);
+      if (el) el.classList.toggle('active', x===d);
+    });
+    autoPreview();
+  }
+
+  function setT(id, v) { document.getElementById(id).value = v; autoPreview(); }
+  function setPresPos(p) {
+    presPos = p;
+    ['right','left'].forEach(x => document.getElementById('pp-'+x).classList.toggle('active', x===p));
+    autoPreview();
+  }
+  function setZOrder(z) {
+    zOrder = z;
+    ['front','back'].forEach(x => document.getElementById('z-'+x).classList.toggle('active', x===z));
+    autoPreview();
+  }
+  function setAlign(line, a) {
+    if (line===1) { align1=a; ['left','center','right'].forEach(x=>document.getElementById('a1-'+x).classList.toggle('active',x===a)); }
+    else          { align2=a; ['left','center','right'].forEach(x=>document.getElementById('a2-'+x).classList.toggle('active',x===a)); }
+    autoPreview();
+  }
+  function setCorner(c) {
+    corner = c;
+    ['tl','tc','tr','ml','mr','bl','bc','br'].forEach(x => { const el=document.getElementById('c-'+x); if(el) el.classList.toggle('active',x===c); });
+    autoPreview();
+  }
+
+  function loadBg(input) {
+    const file = input.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => { bgImg = img; autoPreview(); };
+      img.src = e.target.result;
+      document.getElementById('bgLabel').textContent = file.name;
+      document.getElementById('bgZone').classList.add('loaded');
+    };
+    reader.readAsDataURL(file);
+  }
+  function loadPres(input) {
+    const file = input.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => { presImg = img; autoPreview(); };
+      img.src = e.target.result;
+      document.getElementById('presLabel').textContent = file.name;
+      document.getElementById('presZone').classList.add('loaded');
+    };
+    reader.readAsDataURL(file);
+  }
+  function loadFont(input) {
+    const file = input.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const face = new FontFace('AvenirCustom', e.target.result);
+      face.load().then(f => {
+        document.fonts.add(f);
+        customFontName = 'AvenirCustom';
+        document.getElementById('fontDot').classList.add('loaded');
+        const t = document.getElementById('fontTrigger');
+        t.classList.add('done');
+        document.getElementById('fontTriggerLabel').textContent = 'Fuente vinculada correctamente';
+        autoPreview();
+      });
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function hexToRgb(hex) {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return [r,g,b];
+  }
+
+  function getFontStr(size) {
+    return `900 ${size}px ${customFontName ? "'AvenirCustom'" : 'Impact, Arial Black, sans-serif'}`;
+  }
+
+  function getBlockPos(W, H, bW, bH, offX, offY) {
+    const p = 40; let x, y;
+    switch(corner) {
+      case 'tl': x=p;          y=p; break;
+      case 'tc': x=(W-bW)/2;   y=p; break;
+      case 'tr': x=W-bW-p;     y=p; break;
+      case 'ml': x=p;          y=(H-bH)/2; break;
+      case 'mr': x=W-bW-p;     y=(H-bH)/2; break;
+      case 'bl': x=p;          y=H-bH-p; break;
+      case 'bc': x=(W-bW)/2;   y=H-bH-p; break;
+      case 'br': x=W-bW-p;     y=H-bH-p; break;
+      default:   x=p; y=p;
+    }
+    return { x: x+offX, y: y+offY };
+  }
+
+  function getTextX(align, bx, tw, bw) {
+    if (align==='center') return bx+(bw-tw)/2;
+    if (align==='right')  return bx+bw-tw;
+    return bx;
+  }
+
+  function drawVignette(ctx, W, H) {
+    if (!vigOn) return;
+    const color = document.getElementById('vigColor').value;
+    const intensity = parseInt(document.getElementById('vigIntensity').value) / 100;
+    const size = parseInt(document.getElementById('vigSize').value) / 100;
+    const [r,g,b] = hexToRgb(color);
+    const cx = W/2, cy = H/2;
+    const inner = Math.min(W,H) * size * 0.5;
+    const outer = Math.sqrt(cx*cx + cy*cy);
+    const grad = ctx.createRadialGradient(cx, cy, inner, cx, cy, outer);
+    grad.addColorStop(0, `rgba(${r},${g},${b},0)`);
+    grad.addColorStop(1, `rgba(${r},${g},${b},${intensity})`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  function drawGradient(ctx, W, H) {
+    if (!gradOn) return;
+    const color = document.getElementById('gradColor').value;
+    const opacity = parseInt(document.getElementById('gradOpacity').value) / 100;
+    const extent = parseInt(document.getElementById('gradExtent').value) / 100;
+    const [r,g,b] = hexToRgb(color);
+    const dirMap = {
+      't':  [W/2,H*extent, W/2,0],
+      'b':  [W/2,H*(1-extent), W/2,H],
+      'l':  [W*extent,H/2, 0,H/2],
+      'r':  [W*(1-extent),H/2, W,H/2],
+      'tl': [W*extent,H*extent, 0,0],
+      'tr': [W*(1-extent),H*extent, W,0],
+      'bl': [W*extent,H*(1-extent), 0,H],
+      'br': [W*(1-extent),H*(1-extent), W,H]
+    };
+    const [x0,y0,x1,y1] = dirMap[gradDir] || dirMap['b'];
+    const grad = ctx.createLinearGradient(x0, y0, x1, y1);
+    grad.addColorStop(0, `rgba(${r},${g},${b},0)`);
+    grad.addColorStop(1, `rgba(${r},${g},${b},${opacity})`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  function drawPresenter(ctx, W, H) {
+    if (!presImg) return;
+    const sp = parseInt(document.getElementById('presSize').value)/100;
+    const th = Math.round(H*sp), tw = Math.round(presImg.width*(th/presImg.height));
+    const px = presPos==='right' ? W-tw-10 : 10;
+    ctx.drawImage(presImg, px, H-th, tw, th);
+  }
+
+  function drawText(ctx, W, H) {
+    const fs2 = parseInt(document.getElementById('fontSize').value);
+    const fs1 = Math.round(fs2*0.62);
+    const gap = parseInt(document.getElementById('lineGap').value);
+    const l1  = document.getElementById('linea1').value;
+    const l2  = document.getElementById('linea2').value;
+    const c1  = '#ffffff';
+    const c2  = document.getElementById('color2').value;
+    const offX= parseInt(document.getElementById('offsetX').value);
+    const offY= parseInt(document.getElementById('offsetY').value);
+
+    ctx.font = getFontStr(fs1); const w1 = ctx.measureText(l1).width;
+    ctx.font = getFontStr(fs2); const w2 = ctx.measureText(l2).width;
+    const bW = Math.max(w1,w2), bH = fs1+gap+fs2;
+    const pos = getBlockPos(W,H,bW,bH,offX,offY);
+    const x1 = getTextX(align1, pos.x, w1, bW);
+    const x2 = getTextX(align2, pos.x, w2, bW);
+
+    ctx.shadowColor='rgba(0,0,0,0.85)'; ctx.shadowBlur=10; ctx.shadowOffsetX=3; ctx.shadowOffsetY=3;
+    ctx.font=getFontStr(fs1); ctx.fillStyle=c1; ctx.fillText(l1, x1, pos.y+fs1);
+    ctx.font=getFontStr(fs2); ctx.fillStyle=c2; ctx.fillText(l2, x2, pos.y+fs1+gap+fs2);
+    ctx.shadowBlur=0; ctx.shadowOffsetX=0; ctx.shadowOffsetY=0;
+  }
+
+  function autoPreview() { if (bgImg) drawCanvas(); }
+  function generateFull() {
+    if (!bgImg) { alert('Primero sube una imagen de fondo'); return; }
+    drawCanvas();
+    const dl = document.getElementById('dlButtons');
+    dl.style.display = 'flex';
+  }
+
+  function drawCanvas() {
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const W=1280, H=720;
+    document.getElementById('emptyState').style.display='none';
+    canvas.style.display='block';
+    ctx.clearRect(0,0,W,H);
+    ctx.drawImage(bgImg,0,0,W,H);
+    const dk = parseInt(document.getElementById('darkness').value);
+    ctx.fillStyle=`rgba(0,0,0,${(dk/255).toFixed(2)})`; ctx.fillRect(0,0,W,H);
+    drawVignette(ctx,W,H);
+    drawGradient(ctx,W,H);
+    if (zOrder==='back')  { drawPresenter(ctx,W,H); drawText(ctx,W,H); }
+    else                  { drawText(ctx,W,H); drawPresenter(ctx,W,H); }
+  }
+
+  function getFileName() {
+    return document.getElementById('linea2').value.replace(/\s+/g,'_').toLowerCase();
+  }
+  function downloadJpg() {
+    const link = document.createElement('a');
+    link.download = `miniatura_${getFileName()}.jpg`;
+    link.href = document.getElementById('canvas').toDataURL('image/jpeg', 0.95);
+    link.click();
+  }
+  function downloadPng() {
+    const src = document.getElementById('canvas');
+    const hd = document.createElement('canvas');
+    hd.width = 1920; hd.height = 1080;
+    const ctx = hd.getContext('2d');
+    ctx.drawImage(src, 0, 0, 1920, 1080);
+    const link = document.createElement('a');
+    link.download = `miniatura_${getFileName()}_HD.png`;
+    link.href = hd.toDataURL('image/png');
+    link.click();
+  }
+
+  function generateScript() {
+    const l1=document.getElementById('linea1').value, l2=document.getElementById('linea2').value;
+    const c1=document.getElementById('color1').value, c2=document.getElementById('color2').value;
+    const fs2=parseInt(document.getElementById('fontSize').value), fs1=Math.round(fs2*0.62);
+    const gap=parseInt(document.getElementById('lineGap').value), dk=document.getElementById('darkness').value;
+    const sp=(parseInt(document.getElementById('presSize').value)/100).toFixed(2);
+    const offX=parseInt(document.getElementById('offsetX').value), offY=parseInt(document.getElementById('offsetY').value);
+    const cL={tl:'arriba izquierda',tc:'arriba centro',tr:'arriba derecha',ml:'medio izquierda',mr:'medio derecha',bl:'abajo izquierda',bc:'abajo centro',br:'abajo derecha'};
+    const aM={left:'izquierda',center:'centro',right:'derecha'};
+    const vigColor=document.getElementById('vigColor').value, vigI=document.getElementById('vigIntensity').value, vigS=document.getElementById('vigSize').value;
+    const gradColor=document.getElementById('gradColor').value, gradO=document.getElementById('gradOpacity').value, gradE=document.getElementById('gradExtent').value;
+
+    const code = `from PIL import Image, ImageDraw, ImageFont, ImageFilter
+import numpy as np, os
+
+def crear_miniatura(linea1, linea2, nombre_presentador, nombre_salida):
+    ruta_fondo       = "assets/backgrounds/Zanahoria_comida_fondo.jpeg"
+    ruta_presentador = f"assets/presentadores/{nombre_presentador}"
+    ruta_fuente      = "assets/fonts/Avenir Next World Black.ttf"
+    ruta_salida      = f"output/{nombre_salida}.jpg"
+    W, H = 1280, 720
+
+    fondo = Image.open(ruta_fondo).convert("RGBA").resize((W, H))
+    oscuro = Image.new("RGBA", (W, H), (0, 0, 0, ${dk}))
+    fondo = Image.alpha_composite(fondo, oscuro)
+
+    ${vigOn ? `# Viñeta circular
+    def add_vignette(img, color_hex="${vigColor}", intensity=${vigI/100}, size=${vigS/100}):
+        r,g,b = int(color_hex[1:3],16), int(color_hex[3:5],16), int(color_hex[5:7],16)
+        xs = np.linspace(-1,1,W); ys = np.linspace(-1,1,H)
+        xx,yy = np.meshgrid(xs,ys); dist = np.sqrt(xx**2+yy**2)
+        inner = size; alpha = np.clip((dist-inner)/(1-inner),0,1)*intensity
+        vig = Image.fromarray((alpha*255).astype(np.uint8))
+        overlay = Image.new("RGBA",img.size,(r,g,b,0))
+        overlay.putalpha(vig); return Image.alpha_composite(img,overlay)
+    fondo = add_vignette(fondo)
+` : '    # Viñeta: desactivada\n'}
+    ${gradOn ? `# Degradado direccional (dirección: ${gradDir})
+    def add_gradient(img, color_hex="${gradColor}", opacity=${gradO/100}, extent=${gradE/100}):
+        r,g,b = int(color_hex[1:3],16), int(color_hex[3:5],16), int(color_hex[5:7],16)
+        alpha = Image.new("L",(W,H),0)
+        draw_g = ImageDraw.Draw(alpha)
+        # Dirección: ${gradDir}
+        steps = 256
+        for i in range(steps):
+            a = int(i/steps*opacity*255)
+            # ajusta coordenadas según dirección en tu código
+            draw_g.rectangle([0,int(H*(1-extent)+H*extent*i/steps),W,int(H*(1-extent)+H*extent*(i+1)/steps)],fill=a)
+        overlay = Image.new("RGBA",img.size,(r,g,b,0))
+        overlay.putalpha(alpha); return Image.alpha_composite(img,overlay)
+    fondo = add_gradient(fondo)
+` : '    # Degradado: desactivado\n'}
+    def get_presentador():
+        p = Image.open(ruta_presentador).convert("RGBA")
+        alto=int(H*${sp}); ancho=int(p.width*(alto/p.height))
+        p=p.resize((ancho,alto))
+        px=${presPos==='right'?'W-ancho-10':'10'}; py=H-alto
+        return p,(px,py)
+    pres_img,pres_pos = get_presentador()
+    ${zOrder==='back'?'fondo.paste(pres_img, pres_pos, pres_img)':''}
+    imagen=fondo.convert("RGB"); draw=ImageDraw.Draw(imagen)
+    fuente1=ImageFont.truetype(ruta_fuente,${fs1})
+    fuente2=ImageFont.truetype(ruta_fuente,${fs2})
+    gap=${gap}
+    bb1=draw.textbbox((0,0),linea1,font=fuente1); bb2=draw.textbbox((0,0),linea2,font=fuente2)
+    w1,h1=bb1[2]-bb1[0],bb1[3]-bb1[1]; w2,h2=bb2[2]-bb2[0],bb2[3]-bb2[1]
+    bw=max(w1,w2); bh=h1+gap+h2; pad=40
+    esquina="${corner}"  # ${cL[corner]}
+    if   esquina=="tl": bx,by=pad,pad
+    elif esquina=="tc": bx,by=(W-bw)//2,pad
+    elif esquina=="tr": bx,by=W-bw-pad,pad
+    elif esquina=="ml": bx,by=pad,(H-bh)//2
+    elif esquina=="mr": bx,by=W-bw-pad,(H-bh)//2
+    elif esquina=="bl": bx,by=pad,H-bh-pad
+    elif esquina=="bc": bx,by=(W-bw)//2,H-bh-pad
+    elif esquina=="br": bx,by=W-bw-pad,H-bh-pad
+    bx+=${offX}; by+=${offY}
+    a1="${align1}"; x1=bx if a1=="left" else bx+(bw-w1)//2 if a1=="center" else bx+bw-w1
+    a2="${align2}"; x2=bx if a2=="left" else bx+(bw-w2)//2 if a2=="center" else bx+bw-w2
+    draw.text((x1+3,by+3),linea1,font=fuente1,fill=(0,0,0))
+    draw.text((x2+3,by+h1+gap+3),linea2,font=fuente2,fill=(0,0,0))
+    draw.text((x1,by),linea1,font=fuente1,fill="${c1}")
+    draw.text((x2,by+h1+gap),linea2,font=fuente2,fill="${c2}")
+    ${zOrder==='front'?'imagen.paste(pres_img, pres_pos, pres_img)':''}
+    os.makedirs("output",exist_ok=True)
+    imagen.save(ruta_salida,"JPEG",quality=95)
+    print(f"Miniatura creada: {ruta_salida}")
+
+crear_miniatura("${l1}","${l2}","host_molesto_senalando_derecha.png","video_001")`;
+
+    const out=document.getElementById('scriptOut');
+    out.textContent=code; out.style.display='block';
+    navigator.clipboard.writeText(code).then(()=>{
+      const btn=event.currentTarget; btn.textContent='Copiado';
+      setTimeout(()=>btn.textContent='Copiar código Python actualizado',2000);
+    });
+  }
+</script>
+</body>
+</html>
